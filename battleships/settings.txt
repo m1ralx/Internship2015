@@ -1,6 +1,6 @@
 ﻿interactive false
 verbose		true
-gamesCount	10
+gamesCount	300
 height		20
 width		20
 ships		7 6 6 5 5 5 4 4 4 4 3 3 3 2 2 1

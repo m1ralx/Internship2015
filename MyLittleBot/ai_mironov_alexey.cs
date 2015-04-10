@@ -10,13 +10,17 @@ namespace MyLittleBot
         public int X { get; private set; }
         public int Y { get; private set; }
 
-        public double Lenght
+        public static Vector Up { get { return new Vector(0, -1); } }
+        public static Vector Down { get { return new Vector(0, 1); } }
+        public static Vector Right { get { return new Vector(1, 0); } }
+        public static Vector Left { get { return new Vector(-1, 0); } }
+
+        public double Length
         {
             get
             {
                 return Math.Sqrt(X * X + Y * Y);
             }
-            private set { Lenght = value; }
         }
         
         public Vector(int x, int y)
@@ -24,30 +28,30 @@ namespace MyLittleBot
             X = x;
             Y = y;
         }
-        
-        public Vector Add(Vector v)
+
+        public static Vector operator+(Vector v1, Vector v2)
         {
-            return new Vector(v.X + X, v.Y + Y);
+            return new Vector(v1.X + v2.X, v1.Y + v2.Y);
         }
-        
-        public Vector Multiply(int k)
+
+        public static Vector operator*(Vector v, int k)
         {
-            return new Vector(X * k, Y * k);
+            return new Vector(v.X * k, v.Y * k);
         }
-        
+
         public override bool Equals(object other)
         {
             Vector otherVector = other as Vector;
             return otherVector != null && otherVector.X == X && otherVector.Y == Y;
         }
-        
+
         public override int GetHashCode()
         {
             return new Point(X, Y).GetHashCode();
         }
     }
 
-    public enum Cell
+    public enum CellType
     {
         Empty,
         Ship,
@@ -60,7 +64,7 @@ namespace MyLittleBot
         private int Width { get; set; }
         private int Height { get; set; }
         private List<int> ShipsSizes { get; set; }
-        private Cell[][] Map { get; set; }
+        private CellType[][] Map { get; set; }
         private Vector Direction { get; set; }
         private Dictionary<Vector, bool> UsedDirections { get; set; }
         private List<Vector> WoundedShip { get; set; }
@@ -70,34 +74,34 @@ namespace MyLittleBot
             Width = width;
             Height = height;
             ShipsSizes = shipsSizes;
-            Map = new Cell[Width][];
+            Map = new CellType[Width][];
             for (var x = 0; x < Width; x++)
-                Map[x] = new Cell[Height];
-            Direction = new Vector(0, 1);
+                Map[x] = new CellType[Height];
+            Direction = Vector.Down;
             WoundedShip = new List<Vector>();
             ResetDirections();
             CurrentTargetSize = ShipsSizes.Max();
         }
 
-        public void MakeNextDiagonallyShot()
+        public void DiagonalShot()
         {
             var nextShot = Enumerable.Range(0, Height)
-                            .SelectMany(y => Enumerable.Range(0, Width)
-                                .Select(x => new Vector(x, y)))
-                            .Where(point => (point.X + point.Y + 1) % CurrentTargetSize == 0)
-                            .First(IsCorrectShot);
+                .SelectMany(y => Enumerable.Range(0, Width)
+                .Select(x => new Vector(x, y)))
+                .Where(point => (point.X + point.Y + 1) % CurrentTargetSize == 0)
+                .First(IsCorrectShot);
             MakeShot(nextShot);
 
         }
 
         private void ResetDirections()
         {
-            Direction = new Vector(0, 1);
+            Direction = Vector.Down;
             UsedDirections = new Dictionary<Vector, bool>();
-            UsedDirections[new Vector(1, 0)] = true;
-            UsedDirections[new Vector(-1, 0)] = true;
-            UsedDirections[new Vector(0, 1)] = true;
-            UsedDirections[new Vector(0, -1)] = true;
+            UsedDirections[Vector.Right] = true;
+            UsedDirections[Vector.Left] = true;
+            UsedDirections[Vector.Down] = true;
+            UsedDirections[Vector.Up] = true;
         }
 
         private void MarkOutline()
@@ -107,7 +111,7 @@ namespace MyLittleBot
                .SelectMany(neighbours => neighbours)
                .Distinct()
                .ToList()
-               .ForEach(cell => Map[cell.X][cell.Y] = Cell.Miss);
+               .ForEach(cell => Map[cell.X][cell.Y] = CellType.Miss);
         }
 
         private bool TryMakeShotIfMissed()
@@ -115,7 +119,7 @@ namespace MyLittleBot
             Vector nextShot;
             if (WoundedShip.Count > 1)
             {
-                nextShot = WoundedShip.First().Add(Direction.Multiply(-1));
+                nextShot = WoundedShip.First() + (Direction * (-1));
                 if (IsCorrectShot(nextShot))
                 {
                     MakeShot(nextShot);
@@ -126,7 +130,7 @@ namespace MyLittleBot
             {
                 UsedDirections[Direction] = false;
                 Direction = UsedDirections
-                    .First(dir => dir.Value && IsCorrectShot(dir.Key.Add(WoundedShip.First()))).Key;
+                    .First(dir => dir.Value && IsCorrectShot(dir.Key + WoundedShip.First())).Key;
                 nextShot = new Vector(WoundedShip.Last().X + Direction.X, WoundedShip.Last().Y + Direction.Y);
                 MakeShot(nextShot);
                 return true;
@@ -137,7 +141,7 @@ namespace MyLittleBot
         public bool ActionOnKill(int[] arguments)
         {
             WoundedShip.Add(new Vector(arguments[0], arguments[1]));
-            Map[arguments[0]][arguments[1]] = Cell.Ship;
+            Map[arguments[0]][arguments[1]] = CellType.Ship;
             MarkOutline();
             ShipsSizes.Remove(WoundedShip.Count);
             WoundedShip = new List<Vector>();
@@ -149,7 +153,7 @@ namespace MyLittleBot
         public bool ActionOnMiss(int[] arguments)
         {
             var coordinatesOfMiss = new Vector(arguments[0], arguments[1]);
-            Map[coordinatesOfMiss.X][coordinatesOfMiss.Y] = Cell.Miss;
+            Map[coordinatesOfMiss.X][coordinatesOfMiss.Y] = CellType.Miss;
             bool shotMade = TryMakeShotIfMissed();
             if (shotMade)
                 return false;
@@ -161,21 +165,21 @@ namespace MyLittleBot
             var coordinatesOfWound = new Vector(arguments[0], arguments[1]);
             if (WoundedShip.Any())
             {
-                var allDirections = WoundedShip.Select(point => point.Multiply(-1).Add(coordinatesOfWound)).ToList();
-                Direction = allDirections.First(point => point.Lenght == allDirections.Min(p => p.Lenght));
+                var allDirections = WoundedShip.Select(point => point * (-1) + coordinatesOfWound).ToList();
+                Direction = allDirections.First(point => point.Length == allDirections.Min(p => p.Length));
             }
             WoundedShip.Add(coordinatesOfWound);
-            Map[arguments[0]][arguments[1]] = Cell.Ship;
-            var nextShot = coordinatesOfWound.Add(Direction);
+            Map[arguments[0]][arguments[1]] = CellType.Ship;
+            var nextShot = coordinatesOfWound + Direction;
             if (!IsCorrectShot(nextShot))
             {
                 if (WoundedShip.Count > 1)
-                    nextShot = WoundedShip[0].Add(WoundedShip[0].Add(WoundedShip[1].Multiply(-1)));
+                    nextShot = WoundedShip[0] * 2 + WoundedShip[1] * (-1);
                 else
                 {
                     Direction = UsedDirections
-                        .First(dir => dir.Value && IsCorrectShot(dir.Key.Add(coordinatesOfWound))).Key;
-                    nextShot = coordinatesOfWound.Add(Direction);
+                        .First(dir => dir.Value && IsCorrectShot(dir.Key + coordinatesOfWound)).Key;
+                    nextShot = coordinatesOfWound + Direction;
                 }
             }
             MakeShot(nextShot);
@@ -192,7 +196,7 @@ namespace MyLittleBot
             return
                 from x in new[] { -1, 0, 1 }
                 from y in new[] { -1, 0, 1 }
-                let coordinatesCell = cell.Add(new Vector(x, y))
+                let coordinatesCell = cell + new Vector(x, y)
                 where TargetInField(coordinatesCell)
                 select coordinatesCell;
         }
@@ -200,12 +204,12 @@ namespace MyLittleBot
         private bool IsCorrectShot(Vector target)
         {
             return TargetInField(target) && IsEmpty(target) &&
-                   (ShipCouldBeHere(target, new Vector(1, 0)) || ShipCouldBeHere(target, new Vector(0, 1)));
+                   (ShipCouldBeHere(target, Vector.Right) || ShipCouldBeHere(target, Vector.Up));
         }
 
         private bool IsEmpty(Vector point)
         {
-            return Map[point.X][point.Y] == Cell.Empty;
+            return Map[point.X][point.Y] == CellType.Empty;
         }
 
         private bool TargetInField(Vector point)
@@ -213,14 +217,14 @@ namespace MyLittleBot
             return point.X >= 0 && point.X < Width && point.Y >= 0 && point.Y < Height;
         }
 
-        private int GetNumberEmptyCellsInRow(Vector target, Vector direction)
+        private int NumberOfEmptyCellsInRow(Vector target, Vector direction)
         {
             var emptyCells = 0;
             var currentCell = new Vector(target.X, target.Y);
             while (true)
             {
-                currentCell = currentCell.Add(direction);
-                bool isBadShot = !TargetInField(currentCell) || Map[currentCell.X][currentCell.Y] != Cell.Empty;
+                currentCell = currentCell + direction;
+                bool isBadShot = !TargetInField(currentCell) || Map[currentCell.X][currentCell.Y] != CellType.Empty;
                 if (isBadShot)
                     break;
                 emptyCells++;
@@ -234,12 +238,12 @@ namespace MyLittleBot
                 return true;
             if (WoundedShip.Count == 1)
             {
-                direction = target.Multiply(-1).Add(WoundedShip.First());
+                direction = target * (-1) + WoundedShip.First();
                 target = WoundedShip.First();
             }
             var minSize = ShipsSizes.Min();
-            var emptyCellsNumber = GetNumberEmptyCellsInRow(target, direction)
-                             + GetNumberEmptyCellsInRow(target, direction.Multiply(-1));
+            var emptyCellsNumber = NumberOfEmptyCellsInRow(target, direction)
+                             + NumberOfEmptyCellsInRow(target, direction * (-1));
             return emptyCellsNumber + 1 >= minSize;
         }
     }
@@ -268,7 +272,7 @@ namespace MyLittleBot
                 var shotIsNotDone = Commands[command](arguments);
                 if (!shotIsNotDone)
                     continue;
-                Ai.MakeNextDiagonallyShot();
+                Ai.DiagonalShot();
             }
         }
 
