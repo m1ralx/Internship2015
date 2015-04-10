@@ -110,19 +110,7 @@ namespace MyLittleBot
                .ForEach(cell => Map[cell.X][cell.Y] = Cell.Miss);
         }
 
-        public bool OnKill(int[] arguments)
-        {
-            WoundedShip.Add(new Vector(arguments[0], arguments[1]));
-            Map[arguments[0]][arguments[1]] = Cell.Ship;
-            MarkOutline();
-            ShipsSizes.Remove(WoundedShip.Count);
-            WoundedShip = new List<Vector>();
-            ResetDirections();
-            CurrentTargetSize = ShipsSizes.Max();
-            return true;
-        }
-
-        public bool TryMakeShot()
+        private bool TryMakeShotIfMissed()
         {
             Vector nextShot;
             if (WoundedShip.Count > 1)
@@ -146,17 +134,29 @@ namespace MyLittleBot
             return false;
         }
 
-        public bool OnMiss(int[] arguments)
+        public bool ActionOnKill(int[] arguments)
+        {
+            WoundedShip.Add(new Vector(arguments[0], arguments[1]));
+            Map[arguments[0]][arguments[1]] = Cell.Ship;
+            MarkOutline();
+            ShipsSizes.Remove(WoundedShip.Count);
+            WoundedShip = new List<Vector>();
+            ResetDirections();
+            CurrentTargetSize = ShipsSizes.Max();
+            return true;
+        }
+
+        public bool ActionOnMiss(int[] arguments)
         {
             var coordinatesOfMiss = new Vector(arguments[0], arguments[1]);
             Map[coordinatesOfMiss.X][coordinatesOfMiss.Y] = Cell.Miss;
-            bool shotMade = TryMakeShot();
+            bool shotMade = TryMakeShotIfMissed();
             if (shotMade)
                 return false;
             return true;
         }
 
-        public bool OnWound(int[] arguments)
+        public bool ActionOnWound(int[] arguments)
         {
             var coordinatesOfWound = new Vector(arguments[0], arguments[1]);
             if (WoundedShip.Any())
@@ -182,12 +182,12 @@ namespace MyLittleBot
             return false;
         }
 
-        public void MakeShot(Vector shot)
+        private void MakeShot(Vector shot)
         {
             Console.WriteLine("{0} {1}", shot.X, shot.Y);
         }
 
-        public IEnumerable<Vector> GetNeighbours(Vector cell)
+        private IEnumerable<Vector> GetNeighbours(Vector cell)
         {
             return
                 from x in new[] { -1, 0, 1 }
@@ -197,18 +197,18 @@ namespace MyLittleBot
                 select coordinatesCell;
         }
 
-        public bool IsCorrectShot(Vector target)
+        private bool IsCorrectShot(Vector target)
         {
             return TargetInField(target) && IsEmpty(target) &&
                    (ShipCouldBeHere(target, new Vector(1, 0)) || ShipCouldBeHere(target, new Vector(0, 1)));
         }
 
-        public bool IsEmpty(Vector point)
+        private bool IsEmpty(Vector point)
         {
             return Map[point.X][point.Y] == Cell.Empty;
         }
 
-        public bool TargetInField(Vector point)
+        private bool TargetInField(Vector point)
         {
             return point.X >= 0 && point.X < Width && point.Y >= 0 && point.Y < Height;
         }
@@ -278,9 +278,9 @@ namespace MyLittleBot
             var height = initArgs[1];
             var shipsSizes = initArgs.Skip(2).ToList();
             Ai = new BattleShipsAi(width, height, shipsSizes);
-            Commands["Kill"] = Ai.OnKill;
-            Commands["Wound"] = Ai.OnWound;
-            Commands["Miss"] = Ai.OnMiss;
+            Commands["Kill"] = Ai.ActionOnKill;
+            Commands["Wound"] = Ai.ActionOnWound;
+            Commands["Miss"] = Ai.ActionOnMiss;
             return true;
         }
     }

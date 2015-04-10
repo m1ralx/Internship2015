@@ -10,4 +10,4 @@ memorylimit			200000000
 crashlimit			1
 #	
 #	ships		4 3 3 2 2 2 1 1 1 1
-randomSeed	14567865
+# randomSeed	14567865
