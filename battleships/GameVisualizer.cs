@@ -30,20 +30,20 @@ namespace battleships
 			return sb.ToString();
 		}
 
-		private string GetSymbol(CellTypes cellTypes)
+		private string GetSymbol(CellType cellType)
 		{
-			switch (cellTypes)
+			switch (cellType)
 			{
-				case CellTypes.Empty:
+				case CellType.Empty:
 					return " ";
-				case CellTypes.Miss:
+				case CellType.Miss:
 					return "*";
-				case CellTypes.Ship:
+				case CellType.Ship:
 					return "O";
-				case CellTypes.DeadOrWoundedShip:
+				case CellType.DeadOrWoundedShip:
 					return "X";
 				default:
-					throw new Exception(cellTypes.ToString());
+					throw new Exception(cellType.ToString());
 			}
 		}
 	}

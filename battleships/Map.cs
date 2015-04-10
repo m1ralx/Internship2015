@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace battleships
 {
-    public enum CellTypes
+    public enum CellType
     {
         Empty,
         Ship,
@@ -44,19 +44,19 @@ namespace battleships
             var shipOrientation = Direction ? new Vector(1, 0) : new Vector(0, 1);
             return Enumerable
                 .Range(0, Size)
-                .Select(index => shipOrientation
+                .Select(
+                    index => shipOrientation
                     .Mult(index)
-                    .Add(Location)
-                    ).ToList();
+                    .Add(Location))
+                .ToList();
         }
     }
 
     public class Map
     {
-        private static CellTypes[,] _gameField;
-        public static Ship[,] ShipsLocationMap;
-
-        public List<Ship> Ships = new List<Ship>();
+        private CellType[,] GameField { get; set; }
+        public Ship[,] ShipsLocationMap { get; set; }
+        public List<Ship> Ships { get; private set; }
 
         public int Width { get; private set; }
         public int Height { get; private set; }
@@ -65,21 +65,22 @@ namespace battleships
         {
             Width = width;
             Height = height;
-            _gameField = new CellTypes[width, height];
+            GameField = new CellType[width, height];
             ShipsLocationMap = new Ship[width, height];
+            Ships = new List<Ship>();
         }
 
-        public CellTypes this[Vector p]
+        public CellType this[Vector point]
         {
             get
             {
-                return PointInField(p) ? _gameField[p.X, p.Y] : CellTypes.Empty;
+                return PointInField(point) ? GameField[point.X, point.Y] : CellType.Empty;
             }
             private set
             {
-                if (!PointInField(p))
-                    throw new IndexOutOfRangeException(p + " is not in the map borders");
-                _gameField[p.X, p.Y] = value;
+                if (!PointInField(point))
+                    throw new IndexOutOfRangeException(point + " is not in the map borders");
+                GameField[point.X, point.Y] = value;
             }
 }
 
@@ -93,7 +94,7 @@ namespace battleships
             var shipCells = ship.GetShipCells();
             if (shipCells
                 .SelectMany(GetNeighbours)
-                .Any(cell => this[cell] != CellTypes.Empty)
+                .Any(cell => this[cell] != CellType.Empty)
                 ) 
                 return false;
 
@@ -102,7 +103,7 @@ namespace battleships
 
             shipCells.ForEach(cell =>
             {
-                this[cell] = CellTypes.Ship;
+                this[cell] = CellType.Ship;
                 ShipsLocationMap[cell.X, cell.Y] = ship;
             });
             Ships.Add(ship);
@@ -111,16 +112,16 @@ namespace battleships
 
         public ShotEffect GetShotEffect(Vector target)
         {
-            var hit = PointInField(target) && this[target] == CellTypes.Ship;
+            bool hit = PointInField(target) && this[target] == CellType.Ship;
             if (hit)
             {
                 var ship = ShipsLocationMap[target.X, target.Y];
                 ship.AliveCells.Remove(target);
-                this[target] = CellTypes.DeadOrWoundedShip;
+                this[target] = CellType.DeadOrWoundedShip;
                 return ship.Alive ? ShotEffect.Wound : ShotEffect.Kill;
             }
 
-            if (this[target] == CellTypes.Empty) this[target] = CellTypes.Miss;
+            if (this[target] == CellType.Empty) this[target] = CellType.Miss;
                 return ShotEffect.Miss;
         }
 

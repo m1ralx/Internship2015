@@ -36,12 +36,12 @@ namespace battleships
 				if (game.AiCrashed)
 				{
 					crashes++;
-                    var dict = new Dictionary<CellTypes, string>
+                    var dict = new Dictionary<CellType, string>
                     {
-                        {CellTypes.Empty, "0"},
-                        {CellTypes.Miss, "*"},
-                        {CellTypes.DeadOrWoundedShip, "X"},
-                        {CellTypes.Ship, "S"}
+                        {CellType.Empty, "0"},
+                        {CellType.Miss, "*"},
+                        {CellType.DeadOrWoundedShip, "X"},
+                        {CellType.Ship, "S"}
                     };
                     for (var x = 0; x < game.Map.Width; x++)
                     {

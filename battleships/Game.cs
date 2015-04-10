@@ -69,10 +69,10 @@ namespace battleships
 
 		private bool IsBadShot(Vector target)
 		{
-			var cellWasHitAlready = Map[target] != CellTypes.Empty && Map[target] != CellTypes.Ship;
+			var cellWasHitAlready = Map[target] != CellType.Empty && Map[target] != CellType.Ship;
 			var cellIsNearDestroyedShip = Map.GetNeighbours(target).Any(c => Map.ShipsLocationMap[c.X, c.Y] != null && !Map.ShipsLocationMap[c.X, c.Y].Alive);
 			var diagonals = new[] { new Vector(-1, -1), new Vector(-1, 1), new Vector(1, -1), new Vector(1, 1) };
-			var cellHaveWoundedDiagonalNeighbour = diagonals.Any(d => Map[target.Add(d)] == CellTypes.DeadOrWoundedShip);
+			var cellHaveWoundedDiagonalNeighbour = diagonals.Any(d => Map[target.Add(d)] == CellType.DeadOrWoundedShip);
 			return cellWasHitAlready || cellIsNearDestroyedShip || cellHaveWoundedDiagonalNeighbour;
 		}
 	}

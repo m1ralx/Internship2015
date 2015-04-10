@@ -30,17 +30,15 @@ namespace MyLittleBot
             return new Vector(v.X + X, v.Y + Y);
         }
         
-        public Vector Mul(int k)
+        public Vector Multiply(int k)
         {
             return new Vector(X * k, Y * k);
         }
         
         public override bool Equals(object other)
         {
-            if(!(other.GetType() == typeof(Vector)))
-                return false;
-            var v = (Vector)other;
-            return v.X == X && v.Y == Y;
+            Vector otherVector = other as Vector;
+            return otherVector != null && otherVector.X == X && otherVector.Y == Y;
         }
         
         public override int GetHashCode()
@@ -56,111 +54,43 @@ namespace MyLittleBot
         Miss
     }
 
-    public class Bot
+    public class BattleShipsAi
     {
-        private static int CurrentTargetSize { get; set; }
-        private static int Width { get; set; }
-        private static int Height { get; set; }
-        private static List<int> ShipsSize { get; set; }
-        private static Cell[][] Map { get; set; }
-        private static Vector Direction { get; set; }
-        private static Dictionary<Vector, bool> UsedDirections { get; set; }
-        private static List<Vector> WoundedShip { get; set; }
+        private int CurrentTargetSize { get; set; }
+        private int Width { get; set; }
+        private int Height { get; set; }
+        private List<int> ShipsSizes { get; set; }
+        private Cell[][] Map { get; set; }
+        private Vector Direction { get; set; }
+        private Dictionary<Vector, bool> UsedDirections { get; set; }
+        private List<Vector> WoundedShip { get; set; }
 
-        static void Main()
+        public BattleShipsAi(int width, int height, List<int> shipsSizes)
         {
-            while (true)
-            {
-                var line = Console.ReadLine();
-                if (line == null) 
-                    return;
-                var command = line.Split().First();
-                var arguments = line
-                    .Split()
-                    .Skip(1)
-                    .Select(int.Parse)
-                    .ToArray();
-
-                Vector nextShot;
-                switch (command)
-                {
-                    case "Init":
-                        Init(arguments);
-                        break;
-                    case "Wound":
-                        nextShot = OnWound(arguments);
-                        MakeShot(nextShot);
-                        continue;
-                    case "Kill":
-                        OnKill(arguments);
-                        break;
-                    case "Miss":
-                        var missCoo = new Vector(arguments[0], arguments[1]);
-                        Map[missCoo.X][missCoo.Y] = Cell.Miss;
-                        var shotMade = TryMakeShot();
-                        if (shotMade)
-                            continue;
-                        break;
-                }
-                CurrentTargetSize = ShipsSize.Max();
-                nextShot = GetNextShot(); 
-                MakeShot(nextShot);
-            }
-        }
-
-        private static int GetCountEmptyCells(Vector target, Vector direction)
-        {
-            var emptyCells = 0;
-            var currentCell = new Vector(target.X, target.Y);
-            while (true)
-            {
-                currentCell = currentCell.Add(direction);
-                if (!TargetInField(currentCell) || Map[currentCell.X][currentCell.Y] != Cell.Empty)
-                    break;
-                emptyCells++;
-            }
-            return emptyCells;
-        }
-
-        private static bool PossibleShip(Vector target, Vector direction)
-        {
-            if (WoundedShip.Count > 1)
-                return true;
-            if (WoundedShip.Count == 1)
-            {
-                direction = target.Mul(-1).Add(WoundedShip.First());
-                target = WoundedShip.First();
-            }
-            var minSize = ShipsSize.Min();
-            var emptyCells = GetCountEmptyCells(target, direction)
-                + GetCountEmptyCells(target, direction.Mul(-1));
-            return emptyCells + 1 >= minSize;
-        }
-
-        private static void Init(params int[] initArgs)
-        {
-            Width = initArgs[0];
-            Height = initArgs[1];
-            ShipsSize = initArgs.Skip(2).ToList();
+            Width = width;
+            Height = height;
+            ShipsSizes = shipsSizes;
             Map = new Cell[Width][];
             for (var x = 0; x < Width; x++)
                 Map[x] = new Cell[Height];
             Direction = new Vector(0, 1);
             WoundedShip = new List<Vector>();
             ResetDirections();
+            CurrentTargetSize = ShipsSizes.Max();
         }
 
-        private static Vector GetNextShot()
+        public void MakeNextDiagonallyShot()
         {
-            return Enumerable.Range(0, Height)
-                .SelectMany(y => Enumerable.Range(0, Width)
-                    .Select(x => new Vector(x, y)))
-                .Where(point => (point.X + point.Y + 1) % CurrentTargetSize == 0)
-                .First(IsCorrectShot);
+            var nextShot = Enumerable.Range(0, Height)
+                            .SelectMany(y => Enumerable.Range(0, Width)
+                                .Select(x => new Vector(x, y)))
+                            .Where(point => (point.X + point.Y + 1) % CurrentTargetSize == 0)
+                            .First(IsCorrectShot);
+            MakeShot(nextShot);
 
         }
 
-        private static void ResetDirections()
+        private void ResetDirections()
         {
             Direction = new Vector(0, 1);
             UsedDirections = new Dictionary<Vector, bool>();
@@ -168,35 +98,36 @@ namespace MyLittleBot
             UsedDirections[new Vector(-1, 0)] = true;
             UsedDirections[new Vector(0, 1)] = true;
             UsedDirections[new Vector(0, -1)] = true;
-
         }
 
-        private static void MarkOutline()
+        private void MarkOutline()
         {
             WoundedShip
-                .Select(GetNeighbours)
-                .SelectMany(neighbours => neighbours)
-                .Distinct()
-                .ToList()
-                .ForEach(cell => Map[cell.X][cell.Y] = Cell.Miss);
+               .Select(GetNeighbours)
+               .SelectMany(neighbours => neighbours)
+               .Distinct()
+               .ToList()
+               .ForEach(cell => Map[cell.X][cell.Y] = Cell.Miss);
         }
 
-        private static void OnKill(int[] arguments)
+        public bool OnKill(int[] arguments)
         {
             WoundedShip.Add(new Vector(arguments[0], arguments[1]));
             Map[arguments[0]][arguments[1]] = Cell.Ship;
             MarkOutline();
-            ShipsSize.Remove(WoundedShip.Count);
+            ShipsSizes.Remove(WoundedShip.Count);
             WoundedShip = new List<Vector>();
             ResetDirections();
+            CurrentTargetSize = ShipsSizes.Max();
+            return true;
         }
 
-        private static bool TryMakeShot()
+        public bool TryMakeShot()
         {
             Vector nextShot;
             if (WoundedShip.Count > 1)
             {
-                nextShot = WoundedShip.First().Add(Direction.Mul(-1));
+                nextShot = WoundedShip.First().Add(Direction.Multiply(-1));
                 if (IsCorrectShot(nextShot))
                 {
                     MakeShot(nextShot);
@@ -215,37 +146,48 @@ namespace MyLittleBot
             return false;
         }
 
-        private static Vector OnWound(int[] arguments)
+        public bool OnMiss(int[] arguments)
         {
-            var woundCoo = new Vector(arguments[0], arguments[1]);
+            var coordinatesOfMiss = new Vector(arguments[0], arguments[1]);
+            Map[coordinatesOfMiss.X][coordinatesOfMiss.Y] = Cell.Miss;
+            bool shotMade = TryMakeShot();
+            if (shotMade)
+                return false;
+            return true;
+        }
+
+        public bool OnWound(int[] arguments)
+        {
+            var coordinatesOfWound = new Vector(arguments[0], arguments[1]);
             if (WoundedShip.Any())
             {
-                var allDirections = WoundedShip.Select(point => point.Mul(-1).Add(woundCoo)).ToList();
+                var allDirections = WoundedShip.Select(point => point.Multiply(-1).Add(coordinatesOfWound)).ToList();
                 Direction = allDirections.First(point => point.Lenght == allDirections.Min(p => p.Lenght));
             }
-            WoundedShip.Add(woundCoo);
+            WoundedShip.Add(coordinatesOfWound);
             Map[arguments[0]][arguments[1]] = Cell.Ship;
-            var nextShot = woundCoo.Add(Direction);
+            var nextShot = coordinatesOfWound.Add(Direction);
             if (!IsCorrectShot(nextShot))
             {
                 if (WoundedShip.Count > 1)
-                    nextShot = WoundedShip[0].Add(WoundedShip[0].Add(WoundedShip[1].Mul(-1)));
+                    nextShot = WoundedShip[0].Add(WoundedShip[0].Add(WoundedShip[1].Multiply(-1)));
                 else
                 {
                     Direction = UsedDirections
-                        .First(dir => dir.Value && IsCorrectShot(dir.Key.Add(woundCoo))).Key;
-                    nextShot = woundCoo.Add(Direction);
+                        .First(dir => dir.Value && IsCorrectShot(dir.Key.Add(coordinatesOfWound))).Key;
+                    nextShot = coordinatesOfWound.Add(Direction);
                 }
             }
-            return nextShot;
+            MakeShot(nextShot);
+            return false;
         }
 
-        private static void MakeShot(Vector shot)
+        public void MakeShot(Vector shot)
         {
             Console.WriteLine("{0} {1}", shot.X, shot.Y);
         }
 
-        public static IEnumerable<Vector> GetNeighbours(Vector cell)
+        public IEnumerable<Vector> GetNeighbours(Vector cell)
         {
             return
                 from x in new[] { -1, 0, 1 }
@@ -255,20 +197,91 @@ namespace MyLittleBot
                 select coordinatesCell;
         }
 
-        public static bool IsCorrectShot(Vector target)
+        public bool IsCorrectShot(Vector target)
         {
-            return TargetInField(target) && IsEmpty(target) && 
-                (PossibleShip(target, new Vector(1, 0)) || PossibleShip(target, new Vector(0, 1)));
+            return TargetInField(target) && IsEmpty(target) &&
+                   (ShipCouldBeHere(target, new Vector(1, 0)) || ShipCouldBeHere(target, new Vector(0, 1)));
         }
 
-        public static bool IsEmpty(Vector point)
+        public bool IsEmpty(Vector point)
         {
             return Map[point.X][point.Y] == Cell.Empty;
         }
-        
-        public static bool TargetInField(Vector point)
+
+        public bool TargetInField(Vector point)
         {
             return point.X >= 0 && point.X < Width && point.Y >= 0 && point.Y < Height;
+        }
+
+        private int GetNumberEmptyCellsInRow(Vector target, Vector direction)
+        {
+            var emptyCells = 0;
+            var currentCell = new Vector(target.X, target.Y);
+            while (true)
+            {
+                currentCell = currentCell.Add(direction);
+                bool isBadShot = !TargetInField(currentCell) || Map[currentCell.X][currentCell.Y] != Cell.Empty;
+                if (isBadShot)
+                    break;
+                emptyCells++;
+            }
+            return emptyCells;
+        }
+
+        private bool ShipCouldBeHere(Vector target, Vector direction)
+        {
+            if (WoundedShip.Count > 1)
+                return true;
+            if (WoundedShip.Count == 1)
+            {
+                direction = target.Multiply(-1).Add(WoundedShip.First());
+                target = WoundedShip.First();
+            }
+            var minSize = ShipsSizes.Min();
+            var emptyCellsNumber = GetNumberEmptyCellsInRow(target, direction)
+                             + GetNumberEmptyCellsInRow(target, direction.Multiply(-1));
+            return emptyCellsNumber + 1 >= minSize;
+        }
+    }
+
+    public class BattleShipsBot
+    {
+        private static BattleShipsAi Ai { get; set; }
+        private static Dictionary<string, Func<int[], bool>> Commands { get; set; }
+        static void Main()
+        {
+            Commands = new Dictionary<string, Func<int[], bool>>
+            {
+                {"Init", InitializeAi}
+            };
+            while (true)
+            {
+                var inputLine = Console.ReadLine();
+                if (inputLine == null) 
+                    return;
+                var command = inputLine.Split().First();
+                var arguments = inputLine
+                    .Split()
+                    .Skip(1)
+                    .Select(int.Parse)
+                    .ToArray();
+                var shotIsNotDone = Commands[command](arguments);
+                if (!shotIsNotDone)
+                    continue;
+                Ai.MakeNextDiagonallyShot();
+            }
+        }
+
+        private static bool InitializeAi(params int[] initArgs)
+        {
+            var width = initArgs[0];
+            var height = initArgs[1];
+            var shipsSizes = initArgs.Skip(2).ToList();
+            Ai = new BattleShipsAi(width, height, shipsSizes);
+            Commands["Kill"] = Ai.OnKill;
+            Commands["Wound"] = Ai.OnWound;
+            Commands["Miss"] = Ai.OnMiss;
+            return true;
         }
     }
 }
