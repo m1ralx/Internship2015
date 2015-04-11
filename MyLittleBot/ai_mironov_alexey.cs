@@ -104,7 +104,7 @@ namespace MyLittleBot
             UsedDirections[Vector.Up] = true;
         }
 
-        private void MarkOutline()
+        private void MarkOutlineAsMissed()
         {
             WoundedShip
                .Select(GetNeighbours)
@@ -142,7 +142,7 @@ namespace MyLittleBot
         {
             WoundedShip.Add(new Vector(arguments[0], arguments[1]));
             Map[arguments[0]][arguments[1]] = CellType.Ship;
-            MarkOutline();
+            MarkOutlineAsMissed();
             ShipsSizes.Remove(WoundedShip.Count);
             WoundedShip = new List<Vector>();
             ResetDirections();
@@ -196,9 +196,9 @@ namespace MyLittleBot
             return
                 from x in new[] { -1, 0, 1 }
                 from y in new[] { -1, 0, 1 }
-                let coordinatesCell = cell + new Vector(x, y)
-                where TargetInField(coordinatesCell)
-                select coordinatesCell;
+                let cellCoordinates = cell + new Vector(x, y)
+                where TargetInField(cellCoordinates)
+                select cellCoordinates;
         }
 
         private bool IsCorrectShot(Vector target)
